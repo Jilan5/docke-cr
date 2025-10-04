@@ -80,7 +80,7 @@ func (m *Manager) Checkpoint(containerName string, config CheckpointConfig) erro
 
 	// 5. Save mount mappings for restore
 	mountMappingsFile := filepath.Join(checkpointDir, "mount_mappings.json")
-	if err := m.saveMountMappings(mountMappings, mountMappingsFile); err != nil {
+	if err := m.SaveMountMappings(mountMappings, mountMappingsFile); err != nil {
 		return fmt.Errorf("failed to save mount mappings: %w", err)
 	}
 
@@ -209,7 +209,7 @@ func (m *Manager) GetCheckpointInfo(checkpointDir string) (*CheckpointMetadata, 
 	return &metadata, nil
 }
 
-func (m *Manager) saveMountMappings(mappings []docker.MountMapping, filePath string) error {
+func (m *Manager) SaveMountMappings(mappings []docker.MountMapping, filePath string) error {
 	data, err := json.MarshalIndent(mappings, "", "  ")
 	if err != nil {
 		return fmt.Errorf("failed to marshal mount mappings: %w", err)

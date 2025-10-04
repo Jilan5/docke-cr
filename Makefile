@@ -35,13 +35,13 @@ build: deps $(BUILD_DIR)/$(BINARY_NAME)
 $(BUILD_DIR)/$(BINARY_NAME): $(shell find $(SRC_DIR) $(PKG_DIR) -name "*.go")
 	@echo "Building $(BINARY_NAME)..."
 	@mkdir -p $(BUILD_DIR)
-	$(GO_BUILD) $(BUILD_FLAGS) -ldflags="$(LDFLAGS)" -o $(BUILD_DIR)/$(BINARY_NAME) $(SRC_DIR)/main.go
+	$(GO_BUILD) $(BUILD_FLAGS) -ldflags="$(LDFLAGS)" -o $(BUILD_DIR)/$(BINARY_NAME) ./cmd
 
 ## build-debug: Build with debug symbols and race detection
 build-debug: deps
 	@echo "Building $(BINARY_NAME) with debug symbols..."
 	@mkdir -p $(BUILD_DIR)
-	$(GO_BUILD) $(DEBUG_FLAGS) -ldflags="$(LDFLAGS)" -o $(BUILD_DIR)/$(BINARY_NAME)-debug $(SRC_DIR)/main.go
+	$(GO_BUILD) $(DEBUG_FLAGS) -ldflags="$(LDFLAGS)" -o $(BUILD_DIR)/$(BINARY_NAME)-debug ./cmd
 
 ## deps: Download dependencies
 deps:
@@ -157,7 +157,7 @@ dist: clean build
 release: clean
 	@echo "Building release version $(VERSION)..."
 	@mkdir -p $(DIST_DIR)
-	CGO_ENABLED=0 GOOS=linux GOARCH=amd64 $(GO_BUILD) -a -installsuffix cgo $(BUILD_FLAGS) -ldflags="$(LDFLAGS)" -o $(DIST_DIR)/$(BINARY_NAME)-linux-amd64 $(SRC_DIR)/main.go
+	CGO_ENABLED=0 GOOS=linux GOARCH=amd64 $(GO_BUILD) -a -installsuffix cgo $(BUILD_FLAGS) -ldflags="$(LDFLAGS)" -o $(DIST_DIR)/$(BINARY_NAME)-linux-amd64 ./cmd
 	@echo "Release build completed: $(DIST_DIR)/$(BINARY_NAME)-linux-amd64"
 
 ## docker-build: Build Docker image

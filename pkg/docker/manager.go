@@ -25,7 +25,7 @@ type ContainerState struct {
 	Image         string                          `json:"image"`
 	Config        *container.Config               `json:"config"`
 	HostConfig    *container.HostConfig           `json:"host_config"`
-	NetworkConfig *network.NetworkingConfig       `json:"network_config"`
+	NetworkConfig map[string]*network.EndpointSettings `json:"network_config"`
 	Mounts        []types.MountPoint              `json:"mounts"`
 	ProcessPID    int                             `json:"process_pid"`
 	Created       time.Time                       `json:"created"`
@@ -90,6 +90,13 @@ func (m *Manager) GetContainerState(nameOrID string) (*ContainerState, error) {
 		labelMap = containerJSON.Config.Labels
 	}
 
+	// Parse the created time
+	createdTime, err := time.Parse(time.RFC3339Nano, containerJSON.Created)
+	if err != nil {
+		// Fallback to current time if parsing fails
+		createdTime = time.Now()
+	}
+
 	state := &ContainerState{
 		ID:            containerJSON.ID,
 		Name:          strings.TrimPrefix(containerJSON.Name, "/"),
@@ -99,7 +106,7 @@ func (m *Manager) GetContainerState(nameOrID string) (*ContainerState, error) {
 		NetworkConfig: containerJSON.NetworkSettings.Networks,
 		Mounts:        containerJSON.Mounts,
 		ProcessPID:    containerJSON.State.Pid,
-		Created:       containerJSON.Created,
+		Created:       createdTime,
 		RootFS:        containerJSON.GraphDriver.Data["MergedDir"],
 		Runtime:       runtime,
 		BundlePath:    fmt.Sprintf("/run/docker/runtime-%s/moby/%s", runtime, containerJSON.ID),

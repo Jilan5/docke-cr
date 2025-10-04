@@ -5,7 +5,6 @@ import (
 	"docker-cr/pkg/utils"
 	"fmt"
 	"os"
-	"path/filepath"
 
 	criu "github.com/checkpoint-restore/go-criu/v7"
 	"github.com/checkpoint-restore/go-criu/v7/rpc"
@@ -14,7 +13,7 @@ import (
 )
 
 type CRIUManager struct {
-	criuClient criu.Criu
+	criuClient *criu.Criu
 	logger     *logrus.Logger
 }
 
