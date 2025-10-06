@@ -306,11 +306,21 @@ func (cm *CRIUManager) CheckCRIUSupport() error {
 	// This is a simplified check - in real implementation,
 	// you'd want to call CRIU's check functionality
 
-	if _, err := os.Stat("/usr/bin/criu"); err != nil {
-		if _, err := os.Stat("/usr/local/bin/criu"); err != nil {
-			return fmt.Errorf("CRIU binary not found in standard locations")
+	// Check common CRIU installation paths
+	criuPaths := []string{
+		"/usr/sbin/criu",      // Common on Ubuntu/Debian
+		"/usr/bin/criu",        // Alternative location
+		"/usr/local/bin/criu",  // Manually installed
+		"/usr/local/sbin/criu", // Alternative manual install
+		"/sbin/criu",           // System binary location
+	}
+
+	for _, path := range criuPaths {
+		if _, err := os.Stat(path); err == nil {
+			cm.logger.Debugf("Found CRIU at: %s", path)
+			return nil
 		}
 	}
 
-	return nil
+	return fmt.Errorf("CRIU binary not found in standard locations: %v", criuPaths)
 }
