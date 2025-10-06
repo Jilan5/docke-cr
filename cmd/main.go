@@ -146,13 +146,13 @@ func newCheckpointCommand() *cobra.Command {
 	}
 
 	cmd.Flags().StringVarP(&outputDir, "output", "o", "/tmp/docker-checkpoints", "Output directory for checkpoints")
-	cmd.Flags().StringVarP(&checkpointName, "name", "n", "checkpoint", "Name for the checkpoint")
+	cmd.Flags().StringVarP(&checkpointName, "name", "n", "checkpoint1", "Name for the checkpoint")
 	cmd.Flags().BoolVar(&leaveRunning, "leave-running", true, "Leave container running after checkpoint")
-	cmd.Flags().BoolVar(&tcpEstablished, "tcp", true, "Checkpoint established TCP connections")
-	cmd.Flags().BoolVar(&fileLocks, "file-locks", true, "Checkpoint file locks")
+	cmd.Flags().BoolVar(&tcpEstablished, "tcp", false, "Checkpoint established TCP connections")
+	cmd.Flags().BoolVar(&fileLocks, "file-locks", false, "Checkpoint file locks")
 	cmd.Flags().BoolVar(&preDump, "pre-dump", false, "Perform pre-dump for optimization")
-	cmd.Flags().BoolVar(&manageCgroups, "manage-cgroups", true, "Manage cgroups during checkpoint")
-	cmd.Flags().BoolVar(&shell, "shell", true, "Checkpoint as shell job")
+	cmd.Flags().BoolVar(&manageCgroups, "manage-cgroups", false, "Manage cgroups during checkpoint")
+	cmd.Flags().BoolVar(&shell, "shell", false, "Checkpoint as shell job")
 
 	return cmd
 }

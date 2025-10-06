@@ -5,6 +5,7 @@ import (
 	"docker-cr/pkg/utils"
 	"fmt"
 	"os"
+	"strings"
 
 	criu "github.com/checkpoint-restore/go-criu/v7"
 	"github.com/checkpoint-restore/go-criu/v7/rpc"
@@ -70,27 +71,39 @@ func (cm *CRIUManager) CheckpointProcess(pid int, opts CheckpointOptions) error 
 		return fmt.Errorf("failed to create images directory: %w", err)
 	}
 
-	// Build CRIU options
+	// Build CRIU options with proper Docker-specific settings
 	criuOpts := &rpc.CriuOpts{
-		Pid:            proto.Int32(int32(pid)),
-		LogLevel:       proto.Int32(int32(opts.LogLevel)),
-		LogFile:        proto.String(opts.LogFile),
-		ManageCgroups:  proto.Bool(opts.ManageCgroups),
-		TcpEstablished: proto.Bool(opts.TcpEstablished),
-		FileLocks:      proto.Bool(opts.FileLocks),
-		LeaveRunning:   proto.Bool(opts.LeaveRunning),
-		ShellJob:       proto.Bool(opts.Shell),
-		External:       opts.External,
+		Pid:                proto.Int32(int32(pid)),
+		LogLevel:           proto.Int32(int32(opts.LogLevel)),
+		LogFile:            proto.String(opts.LogFile),
+		ManageCgroups:      proto.Bool(opts.ManageCgroups),
+		TcpEstablished:     proto.Bool(opts.TcpEstablished),
+		FileLocks:          proto.Bool(opts.FileLocks),
+		LeaveRunning:       proto.Bool(opts.LeaveRunning),
+		ShellJob:           proto.Bool(opts.Shell),
+		External:           opts.External,
+		ExtUnixSk:          proto.Bool(true),
+		GhostLimit:         proto.Uint32(0),
+		ManageCgroupsMode:  rpc.CriuCgMode_SOFT.Enum(),
 	}
 
-	// Set images directory
-	workDir, err := os.Open(opts.ImagesDir)
+	// Set working directory
+	workDir, err := os.Open(opts.WorkDir)
 	if err != nil {
-		return fmt.Errorf("failed to open images directory: %w", err)
+		return fmt.Errorf("failed to open work directory: %w", err)
 	}
 	defer workDir.Close()
 
-	criuOpts.ImagesDirFd = proto.Int32(int32(workDir.Fd()))
+	criuOpts.WorkDirFd = proto.Int32(int32(workDir.Fd()))
+
+	// Set images directory
+	imagesDir, err := os.Open(opts.ImagesDir)
+	if err != nil {
+		return fmt.Errorf("failed to open images directory: %w", err)
+	}
+	defer imagesDir.Close()
+
+	criuOpts.ImagesDirFd = proto.Int32(int32(imagesDir.Fd()))
 
 	// Pre-dump if requested
 	if opts.PreDump {
@@ -109,7 +122,15 @@ func (cm *CRIUManager) CheckpointProcess(pid int, opts CheckpointOptions) error 
 	if err := cm.criuClient.Dump(criuOpts, nil); err != nil {
 		// Try to read and log CRIU error details
 		cm.logCRIUError(opts.LogFile)
-		return fmt.Errorf("CRIU checkpoint failed: %w", err)
+
+		// Try command-line fallback
+		cm.logger.Warnf("go-criu library failed, trying command-line fallback: %v", err)
+		if cmdErr := cm.CheckpointProcessCmd(pid, opts); cmdErr != nil {
+			return fmt.Errorf("both go-criu and command-line CRIU failed.\nLibrary error: %w\nCommand error: %v", err, cmdErr)
+		}
+
+		cm.logger.Info("CRIU checkpoint completed successfully via command-line")
+		return nil
 	}
 
 	cm.logger.Info("CRIU checkpoint completed successfully")
@@ -170,26 +191,36 @@ func (cm *CRIUManager) RestoreProcess(opts RestoreOptions) error {
 func (cm *CRIUManager) BuildExternalMountMappings(mappings []docker.MountMapping) []string {
 	var external []string
 
+	// Use simpler format that works better with Docker containers
+	// Format: "mnt[path]:key"
+	standardMounts := []string{
+		"mnt[/proc/sys]",
+		"mnt[/proc/sysrq-trigger]",
+		"mnt[/proc/irq]",
+		"mnt[/proc/bus]",
+		"mnt[/sys/fs/cgroup]",
+		"mnt[/sys]",
+		"mnt[/dev]",
+		"mnt[.dockerenv]",
+		"mnt[/etc/hosts]",
+		"mnt[/etc/hostname]",
+		"mnt[/etc/resolv.conf]",
+	}
+
+	external = standardMounts
+
+	// Add user-defined volume mounts
 	for _, mapping := range mappings {
-		if mapping.IsExternal && mapping.HostPath != "" {
-			// CRIU external mount format: "mnt[container_path]:host_path"
-			extMount := fmt.Sprintf("mnt[%s]:%s", mapping.ContainerPath, mapping.HostPath)
+		if mapping.IsExternal && mapping.HostPath != "" &&
+		   !strings.HasPrefix(mapping.ContainerPath, "/proc") &&
+		   !strings.HasPrefix(mapping.ContainerPath, "/sys") &&
+		   !strings.HasPrefix(mapping.ContainerPath, "/dev") {
+			// Add user volumes
+			extMount := fmt.Sprintf("mnt[%s]", mapping.ContainerPath)
 			external = append(external, extMount)
 		}
 	}
 
-	// Standard system mounts for containers
-	standardMounts := []string{
-		"mnt[/proc]:proc",
-		"mnt[/dev]:dev",
-		"mnt[/sys]:sys",
-		"mnt[/dev/shm]:shm",
-		"mnt[/dev/pts]:pts",
-		"mnt[/dev/mqueue]:mqueue",
-		"mnt[/sys/fs/cgroup]:cgroup",
-	}
-
-	external = append(external, standardMounts...)
 	return external
 }
 

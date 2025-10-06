@@ -94,7 +94,7 @@ func (m *Manager) Checkpoint(containerName string, config CheckpointConfig) erro
 	criuOpts := CheckpointOptions{
 		WorkDir:         checkpointDir,
 		ImagesDir:       imagesDir,
-		LogFile:         filepath.Join(checkpointDir, "checkpoint.log"),
+		LogFile:         filepath.Join(checkpointDir, "dump.log"),  // Use dump.log like working version
 		LogLevel:        config.LogLevel,
 		External:        externalMounts,
 		ManageCgroups:   config.ManageCgroups,
